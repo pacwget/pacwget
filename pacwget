@@ -1,0 +1,179 @@
+#!/bin/bash
+# Wget wrapper to support Proxy Auto Config files, multiple proxies,
+#   and round-robin server names.
+# Requires 
+# Written by Dave Dykstra, 21 March 2013
+
+ME=pacwget
+
+if [ $# = 0 ]; then
+    echo "Usage: $ME [wget_options]" >&2
+    echo >&2
+    echo '$WPAD_URLS is semicolon-separated list of URLs to read Web Proxy' >&2
+    echo '  Auto Discovery files from if $http_proxy is not set.' >&2
+    echo '  "auto" in the list is equivalent to http://wpad/wpad.dat' >&2
+    echo 'For http:// URLs, tries all proxies and servers until one succeeds,' >&2
+    echo '   including round-robin DNS names.' >&2
+    echo 'By default adds these wget options:' >&2
+    echo '  --tries=1 --connect-timeout=5 --read-timeout=10 -nv' >&2
+    exit 1
+fi
+
+CONNECTTIMEOUT=""
+READTIMEOUT=""
+PREV_ARG=""
+AHTTPURL=""
+PACPARSEDEBUG=""
+WGETVERBOSE=""
+for ARG; do
+    case "$PREVARG" in
+	-*T*)
+	    CONNECTTIMEOUT="$ARG"
+	    READTIMEOUT="$ARG"
+	    next
+	    ;;
+    esac
+    case "$ARG" in
+	--connect-timeout=*)
+	    CONNECTTIMEOUT=${ARG#*=}
+	    ;;
+	--read-timeout=*)
+	    READTIMEOUT=${ARG#*=}
+	    ;;
+	--debug|-d)
+	    PACPARSEDEBUG="-d"
+	    ;;
+	--verbose|-v)
+	    WGETVERBOSE="-v"
+	    ;;
+	http://*)
+	    if [ -z "$AHTTPURL" ]; then
+		AHTTPURL="$ARG"
+	    fi
+	    ;;
+    esac
+done
+
+PACWGETARGS="--tries=1 -q"
+WGETARGS="--tries=1"
+if [ -n "$CONNECTTIMEOUT" ]; then
+    PACWGETARGS="$PACWGETARGS --connect-timeout=$CONNECTTIMEOUT"
+else
+    PACWGETARGS="$PACWGETARGS --connect-timeout=5"
+    WGETARGS="$WGETARGS --connect-timeout=5"
+fi
+if [ -n "$READTIMEOUT" ]; then
+    PACWGETARGS="$PACWGETARGS --read-timeout=$READTIMEOUT"
+else
+    PACWGETARGS="$PACWGETARGS --read-timeout=10"
+    WGETARGS="$WGETARGS --read-timeout=10"
+fi
+if [ -n "$PACPARSEDEBUG" ]; then
+    PACWGETARGS="$PACWGETARGS -d"
+fi
+if [ -z "$WGETVERBOSE" ]; then
+    WGETARGS="$WGETARGS -nv"
+fi
+
+if [ -z "$AHTTPURL" ]; then
+    exec wget $WGETARGS "$@"
+fi
+
+if [ -n "$http_proxy" ]; then
+    PROXIES="$http_proxy"
+else
+    if [ -z "$WPAD_URLS" ]; then
+	WPAD_URLS="auto"
+    fi
+    PACTMPFILE=`mktemp /tmp/pacwgetXXXXXXXXXX`
+    trap "rm -f $PACTMPFILE" 0
+    for WPADURL in ${WPAD_URLS//;/ }; do
+	if [ "$WPADURL" = "auto" ]; then
+	    WPADURL="http://wpad/wpad.dat"
+	fi
+	if [ -n "$PACPARSER_DEBUG" ]; then
+	    echo "DEBUG: wgetting $WPADURL"
+	fi
+	if wget $PACWGETARGS -O$PACTMPFILE $WPADURL; then
+	    if PROXYLIST="`pacparse $PACPARSEDEBUG -p $PACTMPFILE -u "$AHTTPURL" -U "$WPADURL"`"; then
+		case "$PROXYLIST" in
+		    "PROXY "*|"DIRECT")
+			PROXIES="${PROXYLIST//PROXY /}"
+			PROXIES="${PROXIES//;/ }"
+			break
+			;;
+		esac
+		echo "$ME: proxy auto config parse of $WPADURL" >&2
+		echo "  with URL $AHTTPURL" >&2
+		echo "  did not return list starting with PROXY or DIRECT" >&2
+		echo "  Instead it returned: $PROXYLIST" >&2
+		exit 2
+	    fi
+	fi
+    done
+    rm -f $PACTMPFILE
+    trap 0
+fi
+
+# Execute wget for each URL separately
+# It would nice to be able to execute wget once for all URLs, but it sometimes
+#  returns success even if one of the URLs fails.  Also, it never reuses a
+#  connection to a proxy anyway so it doesn't make a huge difference.  At
+#  least the list of proxies determined from the WPAD above can be reused
+RET=0
+for ARG; do
+    case "$ARG" in
+	http://*);;
+	*://*)
+	    if wget $WGETARGS "$ARG"; then
+		continue
+	    fi
+	    RET=$?
+	    break
+	    ;;
+	*)
+	    WGETARGS="$WGETARGS $ARG"
+	    continue
+	    ;;
+    esac
+
+    # http:// -- try wget until one of the proxies suceeds
+    for PROXY in $PROXIES; do
+	if [ "$PROXY" = DIRECT ]; then
+	    unset http_proxy
+	else
+	    export http_proxy="$PROXY"
+	fi
+	if wget $WGETARGS "$ARG"; then
+	    break
+	fi
+	RET=$?
+	if [ "$PROXY" != DIRECT ]; then
+	    # if using a proxy, and server has more than one address,
+	    #  try individual addresses too if can find them, to make
+	    #  sure all have been tried
+	    AHOST="${AHTTPURL#http://}"
+	    AHOST="${AHOST%%/*}"
+	    AHOST="${AHOST%:*}"
+	    IPS="`host $AHOST 2>/dev/null|sed -n "s/.* has address //p"`"
+	    if [ `echo "$IPS"|wc -l` -lt 2 ]; then
+		continue
+	    fi
+	    for IP in $IPS; do
+		RET=0
+		if wget $WGETARGS "${ARG/$AHOST/$IP}"; then
+		    break
+		fi
+		RET=$?
+	    done
+	    if [ $RET -eq 0 ]; then
+		break
+	    fi
+	fi
+	if [ $RET -eq 0 ]; then
+	    break
+	fi
+    done
+done
+
+exit $RET
