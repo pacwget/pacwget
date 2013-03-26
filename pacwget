@@ -38,6 +38,7 @@ CONNECTTIMEOUT=""
 READTIMEOUT=""
 PREV_ARG=""
 AHTTPURL=""
+IPVERSION=""
 PACPARSEDEBUG=""
 WGETVERBOSE=""
 for ARG; do
@@ -54,6 +55,12 @@ for ARG; do
 	    ;;
 	--read-timeout=*)
 	    READTIMEOUT=${ARG#*=}
+	    ;;
+	--inet4-only|-4)
+	    IPVERSION="-4"
+	    ;;
+	--inet6-only|-6)
+	    IPVERSION="-6"
 	    ;;
 	--debug|-d)
 	    PACPARSEDEBUG="-d"
@@ -110,7 +117,7 @@ else
 	    echo "DEBUG: wgetting $WPADURL"
 	fi
 	if wget $PACWGETARGS -O$PACTMPFILE $WPADURL; then
-	    if PROXYLIST="`pacparse $PACPARSEDEBUG -p $PACTMPFILE -u "$AHTTPURL" -U "$WPADURL"`"; then
+	    if PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACTMPFILE -u "$AHTTPURL" -U "$WPADURL"`"; then
 		case "$PROXYLIST" in
 		    "PROXY "*|"DIRECT")
 			PROXIES="${PROXYLIST//PROXY /}"
