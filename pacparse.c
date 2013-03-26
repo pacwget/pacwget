@@ -40,7 +40,7 @@ char *progname="pacparse";
 
 void usage()
 {
-  fprintf(stderr, "\nUsage: %s [-edv] -p pacfile -u url [-h host] "
+  fprintf(stderr, "\nUsage: %s [-edv46] -p pacfile -u url [-h host] "
           "[-c client_ip] [-U pacurl]", progname);
   fprintf(stderr, "\nOptions:\n");
   fprintf(stderr, "  -p pacfile   : PAC file to parse (specify '-' to read "
@@ -56,7 +56,9 @@ void usage()
   		   "client IP address\n");
   fprintf(stderr, "                 (creates UDP socket to host, more reliable "
   		  "than default\n");
-  fprintf(stderr, "                  on clients with multiple NICs)\n");
+  fprintf(stderr, "                  on clients with multiple IP addresses)\n");
+  fprintf(stderr, "  -4           : use only IPv4 addresses for -U\n");
+  fprintf(stderr, "  -6           : use only IPv6 addresses for -U\n");
   fprintf(stderr, "  -e           : enable microsoft extensions "
                   "(Ex functions)\n");
   fprintf(stderr, "  -d           : enable debugging messages\n");
@@ -90,7 +92,7 @@ char *get_host_from_url(const char *url)
   return host;
 }
 
-void set_myip_from_host(const char *host)
+void set_myip_from_host(const char *host, int ipversion)
 {
   int err, fd;
   struct addrinfo addrinfo, *res, *r;
@@ -101,9 +103,21 @@ void set_myip_from_host(const char *host)
   char ipbuf[256];
 
   memset(&addrinfo, 0, sizeof(addrinfo));
-  addrinfo.ai_family = PF_UNSPEC;
+  switch(ipversion)
+  {
+    case 4:
+      addrinfo.ai_family = AF_INET;
+      break;
+    case 6:
+      addrinfo.ai_family = AF_INET6;
+      break;
+    default:
+      addrinfo.ai_family = AF_UNSPEC;
+      break;
+  }
   addrinfo.ai_socktype = SOCK_DGRAM;
   addrinfo.ai_protocol = IPPROTO_UDP;
+
   if ((err = getaddrinfo(host, 0, &addrinfo, &res)) != 0) {
     fprintf(stderr, "%s: error from getaddrinfo on %s: %s\n", 
     		progname, host, gai_strerror(err));
@@ -179,9 +193,10 @@ void set_myip_from_host(const char *host)
 int main(int argc, char* argv[])
 {
   char *pacfile=NULL, *url=NULL, *host=NULL, *client_ip=NULL, *pacurl=NULL;
-  int enable_microsoft_extensions=0;
+  int ipversion = 0;
+  int enable_microsoft_extensions = 0;
   signed char c;
-  while ((c = getopt(argc, argv, "edvp:u:h:c:U:")) != -1)
+  while ((c = getopt(argc, argv, "edv46p:u:h:c:U:")) != -1)
     switch (c)
     {
       case 'v':
@@ -203,6 +218,12 @@ int main(int argc, char* argv[])
       case 'U':
         pacurl = optarg;
         break;
+      case '4':
+	ipversion = 4;
+	break;
+      case '6':
+        ipversion = 6;
+	break;
       case 'e':
         enable_microsoft_extensions = 1;
         break;
@@ -302,7 +323,7 @@ int main(int argc, char* argv[])
       fprintf(stderr, "%s: Error finding hostname in %s\n", progname, pacurl);
       exit(2);
     }
-    set_myip_from_host(pachost);
+    set_myip_from_host(pachost, ipversion);
   }
 
   char *proxy;
