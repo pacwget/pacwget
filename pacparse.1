@@ -4,9 +4,11 @@ pacparse \- tool to parse Proxy Auto\-Config (PAC) files
 .SH "SYNOPSIS"
 .B pacparse \-p pacfile \-u url [\-h host] [\-c clientip] [\-U pacurl] [\-46edv]
 .SH "DESCRIPTION"
-pacparse is a tool to parse Proxy Auto\-Config (PAC) files. It returns the
-proxy config string for the given URL and PAC file. pacparse uses the
-pacparser C library for most of its functionality.
+.B pacparse 
+is a tool to parse Proxy Auto\-Config (PAC) files. It returns the
+proxy config string for the given URL and PAC file. 
+.B pacparse 
+uses the pacparser C library for most of its functionality.
 .SH "OPTIONS"
 .TP 
 .B \-p pacfile
@@ -45,7 +47,6 @@ Enable debugging messages.
 .TP 
 .B \-v
 Print version and exit.
-.TP 
 .SH "EXAMPLES"
 .PP 
 To find out the proxy config string for the PAC file "wpad.dat" and the URL
