@@ -40,15 +40,16 @@ char *progname="pacparse";
 
 void usage()
 {
-  fprintf(stderr, "\nUsage: %s [-edv46] -p pacfile -u url [-h host] "
-          "[-c client_ip] [-U pacurl]", progname);
+  fprintf(stderr, "\nUsage: %s -p pacfile -u url [-h host] "
+          "[-c clientip] [-U pacurl] [-46edv]", progname);
   fprintf(stderr, "\nOptions:\n");
   fprintf(stderr, "  -p pacfile   : PAC file to parse (specify '-' to read "
                   "from standard input)\n");
-  fprintf(stderr, "  -u url       : URL to parse for\n");
+  fprintf(stderr, "  -u url       : URL parameter to the PAC file's "
+  		  "FindProxyForURL function\n");
   fprintf(stderr, "  -h host      : Host part of the URL (default "
   		  "parsed from url)\n");
-  fprintf(stderr, "  -c client_ip : client IP address (as returned by "
+  fprintf(stderr, "  -c clientip : client IP address (as returned by "
                   "myIpAddress() function\n");
   fprintf(stderr, "                 in PAC files, defaults to IP address "
                   "of client hostname)\n");
@@ -192,7 +193,7 @@ void set_myip_from_host(const char *host, int ipversion)
 
 int main(int argc, char* argv[])
 {
-  char *pacfile=NULL, *url=NULL, *host=NULL, *client_ip=NULL, *pacurl=NULL;
+  char *pacfile=NULL, *url=NULL, *host=NULL, *clientip=NULL, *pacurl=NULL;
   int ipversion = 0;
   int enable_microsoft_extensions = 0;
   signed char c;
@@ -213,7 +214,7 @@ int main(int argc, char* argv[])
         host = optarg;
         break;
       case 'c':
-        client_ip = optarg;
+        clientip = optarg;
         break;
       case 'U':
         pacurl = optarg;
@@ -314,8 +315,8 @@ int main(int argc, char* argv[])
     }
   }
 
-  if(client_ip)
-    pacparser_setmyip(client_ip);
+  if(clientip)
+    pacparser_setmyip(clientip);
   else if(pacurl) {
     char *pachost;
     pachost = get_host_from_url(pacurl);
