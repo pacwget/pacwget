@@ -83,7 +83,7 @@ for ARG; do
     esac
 done
 
-PACWGETARGS="--tries=1 $PACWGETQUIET"
+PACWGETARGS="--tries=1 $PACWGETQUIET $IPVERSION"
 WGETARGS="--tries=1"
 if [ -n "$CONNECTTIMEOUT" ]; then
     PACWGETARGS="$PACWGETARGS --connect-timeout=$CONNECTTIMEOUT"
