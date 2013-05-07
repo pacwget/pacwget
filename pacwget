@@ -21,8 +21,9 @@
 
 ME=pacwget
 
-if [ $# = 0 ]; then
-    echo "Usage: $ME [wget_options]" >&2
+usage()
+{
+    echo "Usage: $ME [--only-proxies] [wget_options]" >&2
     echo >&2
     echo '$PAC_URLS is semicolon-separated list of URLs to read Proxy Auto Config' >&2
     echo '  files from if $HTTP_PROXIES and $http_proxy are not set.' >&2
@@ -37,14 +38,22 @@ if [ $# = 0 ]; then
     echo 'By default adds these wget options:' >&2
     echo '  --tries=1 --connect-timeout=5 --read-timeout=10' >&2
     echo 'Also adds wget -q when reading PAC URLs if -v or -d not given' >&2
+    echo 'If --only-proxies is given, prints to stdout a $HTTP_PROXIES-like list of' >&2
+    echo '  proxies that would be used instead of loading the given http URL with wget.' >&2
     exit 1
+}
+
+if [ $# = 0 ]; then
+    usage
 fi
 
 CONNECTTIMEOUT=""
 READTIMEOUT=""
 PREV_ARG=""
 AHTTPURL=""
+AURL=""
 IPVERSION=""
+ONLYPROXIES=false
 PACPARSEDEBUG=""
 PACWGETQUIET="-q"
 for ARG; do
@@ -61,6 +70,9 @@ for ARG; do
 	    ;;
 	--read-timeout=*)
 	    READTIMEOUT=${ARG#*=}
+	    ;;
+	--only-proxies)
+	    ONLYPROXIES=true;
 	    ;;
 	--inet4-only|-4)
 	    IPVERSION="-4"
@@ -79,6 +91,9 @@ for ARG; do
 	    if [ -z "$AHTTPURL" ]; then
 		AHTTPURL="$ARG"
 	    fi
+	    ;;
+	*://*)
+	    AURL="$ARG"
 	    ;;
     esac
 done
@@ -102,6 +117,10 @@ if [ -n "$PACPARSEDEBUG" ]; then
 fi
 
 if [ -z "$AHTTPURL" ]; then
+    if [ -z "$AURL" ] || $ONLYPROXIES; then
+	usage
+    fi
+    # no HTTP URLs but there are other URLs so just let wget handle it
     exec wget $WGETARGS "$@"
 fi
 
@@ -148,6 +167,12 @@ else
     fi
     rm -f $PACTMPFILE
     trap 0
+fi
+
+if $ONLYPROXIES; then
+    PROXIES="`echo $PROXIES`" # consolidate multiple blanks to 1
+    echo ${PROXIES// /;}
+    exit
 fi
 
 # Execute wget for each URL separately
