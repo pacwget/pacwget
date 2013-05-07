@@ -2,7 +2,7 @@
 .SH "NAME"
 pacwget \- robustly get http URLs using multiple proxies and servers
 .SH "SYNOPSIS"
-.B pacwget [GNU_WGET_OPTIONS]
+.B pacwget [--only-proxies] [GNU_WGET_OPTIONS]
 .SH "DESCRIPTION"
 .B pacwget
 is a tool that uses GNU wget in such a way that target http URLs are
@@ -11,9 +11,11 @@ functioning.  The "pac" part of the name comes from its support of
 Proxy Auto\-Config (PAC) files for configuring proxies.
 .P
 The configuration of proxies (including via PAC URLs) comes from the
-environment (see below), but multiple servers are only recognized
-through round\-robin DNS names of the host part specified in the target http
-URLs.  With each proxy,
+environment (see below), but multiple servers are recognized through
+round\-robin DNS names of the host part specified in the target http
+URLs.  With each proxy (unless the option
+.B --only-proxies
+is given),
 .B pacwget
 first tries the target URL and if that fails and the host part of the URL
 is a round\-robin DNS name, it tries replacing the host part of the URL
@@ -41,11 +43,13 @@ files to read and parse for a list of http proxies.  The word "auto"
 is converted to "http://wpad/wpad.dat" as is commonly used for Web
 Proxy Auto Discovery.  The last one in the list may be "DIRECT" which
 means to directly connect to the target server if no PAC file can be
-read.  If a PAC file is successfully read, it must return a list of
-proxies or "DIRECT", otherwise it is a fatal error.  Default is 
-"auto; DIRECT".
+read.  The url & host parameters to the FindProxyForURL function in
+the PAC file are derived from the first http:// parameter.
+If a PAC file is successfully read, it must return a list of
+proxies or "DIRECT", otherwise it is a fatal error.  The default value
+of $PAC_URLS if it is not set is "auto; DIRECT".
 .SH "OPTIONS"
-First, note that unlike wget, the ordering of options is significant with
+First, note that unlike with wget, the ordering of options is significant with
 .BR pacwget :
 only the options that come before a URL apply to that URL.  In this
 way, different options can be specified with multiple URLs in the same
@@ -56,7 +60,17 @@ invoked separately for each URL on the
 .B pacwget
 command line.
 .P
-All options are passed to wget, but some cause additional action in 
+There is one option added by
+.BR pacwget :
+.TP
+.B \-\-only\-proxies
+Print to stdout a $HTTP_PROXIES-like list of proxies (that is,
+semicolon separated and may end in "DIRECT") that would be used
+instead of downloading the given URL(s) with wget.  This is useful
+for downloading and parsing PAC files.  Requires one URL that starts
+with http://.
+.P
+All other options are passed to wget, but some cause additional action in 
 .BR pacwget
 and are described here:
 .TP 
