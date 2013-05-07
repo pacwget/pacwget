@@ -38,16 +38,22 @@ an option.
 .TP
 .B PAC_URLS
 If neither HTTP_PROXIES nor http_proxy is set, then PAC_URLS is used
-as a semicolon\-separated list of URLs containing Proxy Auto\-Config
-files to read and parse for a list of http proxies.  The word "auto"
+as a semicolon\-separated list of URLs to try to read Proxy Auto\-Config
+files to parse for a list of http proxies.  The word "auto"
 is converted to "http://wpad/wpad.dat" as is commonly used for Web
 Proxy Auto Discovery.  The last one in the list may be "DIRECT" which
 means to directly connect to the target server if no PAC file can be
-read.  The url & host parameters to the FindProxyForURL function in
-the PAC file are derived from the first http:// parameter.
-If a PAC file is successfully read, it must return a list of
-proxies or "DIRECT", otherwise it is a fatal error.  The default value
-of $PAC_URLS if it is not set is "auto; DIRECT".
+read.  Otherwise the PAC URLs may begin with http:// or file://, although
+if file:// is used then the myIpAddress() function available inside the
+PAC file uses a less reliable method to determine the client's IP
+address (using a DNS lookup on the hostname instead of using the
+client IP from the socket connecting to the PAC file's http server).
+The url & host parameters to the FindProxyForURL function in the PAC
+file are derived from the first command line http:// parameter.  If a
+PAC file is successfully read, it must return a list of proxies or
+"DIRECT", otherwise it is a fatal error and no further PAC URLs are
+tried.  The default value of $PAC_URLS if it is not set is
+"auto; DIRECT".
 .SH "OPTIONS"
 First, note that unlike with wget, the ordering of options is significant with
 .BR pacwget :
