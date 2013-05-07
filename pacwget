@@ -23,23 +23,26 @@ ME=pacwget
 
 usage()
 {
-    echo "Usage: $ME [--only-proxies] [wget_options]" >&2
-    echo >&2
-    echo '$PAC_URLS is semicolon-separated list of URLs to read Proxy Auto Config' >&2
-    echo '  files from if $HTTP_PROXIES and $http_proxy are not set.' >&2
-    echo '  "auto" in the list is equivalent to http://wpad/wpad.dat and' >&2
-    echo '  "DIRECT" at the end indicates direct connection to server.' >&2
-    echo '  Default is "auto; DIRECT".' >&2
-    echo '$HTTP_PROXIES is a semicolon-separated list of http proxy URLs'. >&2
-    echo '  "DIRECT" at the end indicates direct connection to server.' >&2
-    echo '$http_proxy is single http proxy URL.' >&2
-    echo 'For http:// URLs, tries all proxies and servers until one succeeds,' >&2
-    echo '   including round-robin DNS names.' >&2
-    echo 'By default adds these wget options:' >&2
-    echo '  --tries=1 --connect-timeout=5 --read-timeout=10' >&2
-    echo 'Also adds wget -q when reading PAC URLs if -v or -d not given' >&2
-    echo 'If --only-proxies is given, prints to stdout a $HTTP_PROXIES-like list of' >&2
-    echo '  proxies that would be used instead of loading the given http URL with wget.' >&2
+    (
+    echo "Usage: $ME [--only-proxies] [wget_options]" 
+    echo
+    echo '$PAC_URLS is a semicolon-separated list of URLs to try to read'
+    echo '  Proxy Auto Config files from if $HTTP_PROXIES and $http_proxy are'
+    echo '  not set.  "auto" in the list is equivalent to http://wpad/wpad.dat'
+    echo '  and "DIRECT" at the end indicates direct connection to server.'
+    echo '  Everything else must begin with http:// or file://.'
+    echo '  Default is "auto; DIRECT".'
+    echo '$HTTP_PROXIES is a semicolon-separated list of http proxy URLs'.
+    echo '  "DIRECT" at the end indicates direct connection to server.'
+    echo '$http_proxy is single http proxy URL.'
+    echo 'For http:// URLs, tries all proxies and servers until one succeeds,'
+    echo '   including round-robin DNS names.'
+    echo 'By default adds these wget options:'
+    echo '  --tries=1 --connect-timeout=5 --read-timeout=10'
+    echo 'Also adds wget -q when reading PAC URLs if -v or -d not given'
+    echo 'If --only-proxies is given, prints to stdout a $HTTP_PROXIES-like list of'
+    echo '  proxies that would be used and does not load the given http URL with wget.'
+    ) >&2
     exit 1
 }
 
@@ -141,25 +144,47 @@ else
 	    PROXIES="DIRECT"
 	    break
 	fi
-	if [ -n "$PACPARSER_DEBUG" ]; then
-	    echo "DEBUG: wgetting $PACURL"
-	fi
-	if wget $PACWGETARGS -O$PACTMPFILE $PACURL; then
-	    if PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACTMPFILE -u "$AHTTPURL" -U "$PACURL"`"; then
-		case "$PROXYLIST" in
-		    "PROXY "*|"DIRECT")
-			PROXIES="${PROXYLIST//PROXY /}"
-			PROXIES="${PROXIES//;/ }"
-			break
-			;;
-		esac
-		echo "$ME: proxy auto config parse of $PACURL" >&2
-		echo "  with URL $AHTTPURL" >&2
-		echo "  did not return list starting with PROXY or DIRECT" >&2
-		echo "  Instead it returned: $PROXYLIST" >&2
+	if [ "$PACURL" != "${PACURL#file://}" ]; then
+	    PACFILE=/${PACURL#file://*/}
+	    if [ ! -r "$PACFILE" ]; then
+		echo "$ME: $PACFILE does not exist or is not readable" >&2
 		exit 2
 	    fi
+	    PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACFILE -u "$AHTTPURL"`"
+	    PACPARSERET=$?
+	elif [ "$PACURL" != "${PACURL#http://}" ]; then
+	    if [ -n "$PACPARSEDEBUG" ]; then
+		echo "DEBUG: wgetting $PACURL"
+	    fi
+	    if wget $PACWGETARGS -O$PACTMPFILE $PACURL; then
+		PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACTMPFILE -u "$AHTTPURL" -U "$PACURL"`"
+		PACPARSERET=$?
+	    else
+		# wget of a PAC file failed, silently continue to next one
+		continue
+	    fi
+	else
+	    echo "$ME: $PACURL isn't auto or DIRECT" >&2
+	    echo "    and doesn't begin with http:// or file://" >&2
+	    exit 2
 	fi
+	if [ "$PACPARSERET" != 0 ]; then
+	    echo "$ME: failed Proxy Auto Config parse of $PACURL" >&2
+	    echo "  with URL $AHTTPURL" >&2
+	    exit $PACPARSERET
+	fi
+	case "$PROXYLIST" in
+	    "PROXY "*|"DIRECT")
+		PROXIES="${PROXYLIST//PROXY /}"
+		PROXIES="${PROXIES//;/ }"
+		break
+		;;
+	esac
+	echo "$ME: Proxy Auto Config parse of $PACURL" >&2
+	echo "  with URL $AHTTPURL" >&2
+	echo "  did not return list starting with PROXY or DIRECT" >&2
+	echo "  Instead it returned: $PROXYLIST" >&2
+	exit 2
     done
     if [ -z "$PROXIES" ]; then
 	echo "$ME: no proxy found from PAC_URLS=\"$PAC_URLS\"" >&2
