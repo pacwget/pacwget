@@ -1,9 +1,9 @@
 // This file implements a command called pacparse that comes with
-//  the pacwget command  (http://code.google.com/p/pacwget)
+//  the pacwget command  (https://github.com/pacwget/pacwget)
 // Author: Dave Dykstra
 //
 // This file is based on pactester.c which comes with the pacparser library
-// (http://code.google.com/p/pactester)
+// (https://github.com/pacparser/pacparser/blob/master/src/pactester.c)
 // Copyright (C) 2008 Manu Garg.
 // Author: Manu Garg <manugarg@gmail.com>
 //
