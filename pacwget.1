@@ -2,7 +2,7 @@
 .SH "NAME"
 pacwget \- robustly get http URLs using multiple proxies and servers
 .SH "SYNOPSIS"
-.B pacwget [--only-proxies] [GNU_WGET_OPTIONS]
+.B pacwget [--version] [--only-proxies] [GNU_WGET_OPTIONS]
 .SH "DESCRIPTION"
 .B pacwget
 is a tool that uses GNU wget in such a way that target http URLs are
@@ -13,7 +13,9 @@ Proxy Auto\-Config (PAC) files for configuring proxies.
 The configuration of proxies (including via PAC URLs) comes from the
 environment (see below), but multiple servers are recognized through
 round\-robin DNS names of the host part specified in the target http
-URLs.  With each proxy (unless the option
+URLs.  With each proxy (unless option
+.B --version
+or
 .B --only-proxies
 is given),
 .B pacwget
@@ -69,12 +71,16 @@ command line.
 There is one option added by
 .BR pacwget :
 .TP
+.B \-\-version
+Print to stderr the current pacwget version number and exit.
 .B \-\-only\-proxies
 Print to stdout a $HTTP_PROXIES-like list of proxies (that is,
 semicolon separated and may end in "DIRECT") that would be used
 instead of downloading the given URL(s) with wget.  This is useful
-for downloading and parsing PAC files.  Requires one URL that starts
-with http://.
+for downloading and parsing PAC files and for expanding round-robin
+proxy names into separate IP addresses.  Requires one URL that starts
+with http:// even though that URL will not be fetched, because PAC
+requires a URL.
 .P
 All other options are passed to wget, but some cause additional action in 
 .BR pacwget
