@@ -85,44 +85,44 @@ PACWGETQUIET="-q"
 VERBOSE=false
 for ARG; do
     case "$PREVARG" in
-	-*T*)
-	    CONNECTTIMEOUT="$ARG"
-	    READTIMEOUT="$ARG"
-	    next
-	    ;;
+        -*T*)
+            CONNECTTIMEOUT="$ARG"
+            READTIMEOUT="$ARG"
+            next
+            ;;
     esac
     case "$ARG" in
-	--connect-timeout=*)
-	    CONNECTTIMEOUT=${ARG#*=}
-	    ;;
-	--read-timeout=*)
-	    READTIMEOUT=${ARG#*=}
-	    ;;
-	--only-proxies)
-	    ONLYPROXIES=true;
-	    ;;
-	--inet4-only|-4)
-	    IPVERSION="-4"
-	    ;;
-	--inet6-only|-6)
-	    IPVERSION="-6"
-	    ;;
-	--debug|-d)
-	    PACPARSEDEBUG="-d"
-	    PACWGETQUIET=""
-	    ;;
-	--verbose|-v)
-	    PACWGETQUIET=""
+        --connect-timeout=*)
+            CONNECTTIMEOUT=${ARG#*=}
+            ;;
+        --read-timeout=*)
+            READTIMEOUT=${ARG#*=}
+            ;;
+        --only-proxies)
+            ONLYPROXIES=true;
+            ;;
+        --inet4-only|-4)
+            IPVERSION="-4"
+            ;;
+        --inet6-only|-6)
+            IPVERSION="-6"
+            ;;
+        --debug|-d)
+            PACPARSEDEBUG="-d"
+            PACWGETQUIET=""
+            ;;
+        --verbose|-v)
+            PACWGETQUIET=""
             VERBOSE=true
-	    ;;
-	http://*)
-	    if [ -z "$AHTTPURL" ]; then
-		AHTTPURL="$ARG"
-	    fi
-	    ;;
-	*://*)
-	    AURL="$ARG"
-	    ;;
+            ;;
+        http://*)
+            if [ -z "$AHTTPURL" ]; then
+                AHTTPURL="$ARG"
+            fi
+            ;;
+        *://*)
+            AURL="$ARG"
+            ;;
     esac
 done
 
@@ -146,7 +146,7 @@ fi
 
 if [ -z "$AHTTPURL" ]; then
     if [ -z "$AURL" ] || $ONLYPROXIES; then
-	usage
+        usage
     fi
     # no HTTP URLs but there are other URLs so just let wget handle it
     exec wget $WGETARGS "$@"
@@ -158,26 +158,26 @@ elif [ -n "$http_proxy" ]; then
     PROXIES="$http_proxy"
 else
     if [ -z "$PAC_URLS" ]; then
-	PAC_URLS="auto; DIRECT"
+        PAC_URLS="auto; DIRECT"
     fi
     PACTMPFILE=`mktemp /tmp/pacwgetXXXXXXXXXX`
     trap "rm -f $PACTMPFILE" 0
     for PACURL in ${PAC_URLS//;/ }; do
-	if [ "$PACURL" = "auto" ]; then
-	    PACURL="http://wpad/wpad.dat"
-	elif [ "$PACURL" = "DIRECT" ]; then
-	    PROXIES="DIRECT"
-	    break
-	fi
-	if [ "$PACURL" != "${PACURL#file://}" ]; then
-	    PACFILE=/${PACURL#file://*/}
-	    if [ ! -r "$PACFILE" ]; then
-		echo "$ME: $PACFILE does not exist or is not readable" >&2
-		exit 2
-	    fi
-	    PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACFILE -u "$AHTTPURL"`"
-	    PACPARSERET=$?
-	elif [ "$PACURL" != "${PACURL#http://}" ]; then
+        if [ "$PACURL" = "auto" ]; then
+            PACURL="http://wpad/wpad.dat"
+        elif [ "$PACURL" = "DIRECT" ]; then
+            PROXIES="DIRECT"
+            break
+        fi
+        if [ "$PACURL" != "${PACURL#file://}" ]; then
+            PACFILE=/${PACURL#file://*/}
+            if [ ! -r "$PACFILE" ]; then
+                echo "$ME: $PACFILE does not exist or is not readable" >&2
+                exit 2
+            fi
+            PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACFILE -u "$AHTTPURL"`"
+            PACPARSERET=$?
+        elif [ "$PACURL" != "${PACURL#http://}" ]; then
             PACPARSERET=0
             WGETRET=0
             for URL in `expandurl $PACURL`; do
@@ -196,32 +196,32 @@ else
                 # wget of a PAC file failed, silently continue to next one
                 continue
             fi
-	else
-	    echo "$ME: $PACURL isn't auto or DIRECT" >&2
-	    echo "    and doesn't begin with http:// or file://" >&2
-	    exit 2
-	fi
-	if [ "$PACPARSERET" != 0 ]; then
-	    echo "$ME: failed Proxy Auto Config parse of $PACURL" >&2
-	    echo "  with URL $AHTTPURL" >&2
-	    exit $PACPARSERET
-	fi
-	case "$PROXYLIST" in
-	    "PROXY "*|"DIRECT")
-		PROXIES="${PROXYLIST//PROXY /}"
-		PROXIES="${PROXIES//;/ }"
-		break
-		;;
-	esac
-	echo "$ME: Proxy Auto Config parse of $PACURL" >&2
-	echo "  with URL $AHTTPURL" >&2
-	echo "  did not return list starting with PROXY or DIRECT" >&2
-	echo "  Instead it returned: $PROXYLIST" >&2
-	exit 2
+        else
+            echo "$ME: $PACURL isn't auto or DIRECT" >&2
+            echo "    and doesn't begin with http:// or file://" >&2
+            exit 2
+        fi
+        if [ "$PACPARSERET" != 0 ]; then
+            echo "$ME: failed Proxy Auto Config parse of $PACURL" >&2
+            echo "  with URL $AHTTPURL" >&2
+            exit $PACPARSERET
+        fi
+        case "$PROXYLIST" in
+            "PROXY "*|"DIRECT")
+                PROXIES="${PROXYLIST//PROXY /}"
+                PROXIES="${PROXIES//;/ }"
+                break
+                ;;
+        esac
+        echo "$ME: Proxy Auto Config parse of $PACURL" >&2
+        echo "  with URL $AHTTPURL" >&2
+        echo "  did not return list starting with PROXY or DIRECT" >&2
+        echo "  Instead it returned: $PROXYLIST" >&2
+        exit 2
     done
     if [ -z "$PROXIES" ]; then
-	echo "$ME: no proxy found from PAC_URLS=\"$PAC_URLS\"" >&2
-	exit 2
+        echo "$ME: no proxy found from PAC_URLS=\"$PAC_URLS\"" >&2
+        exit 2
     fi
     rm -f $PACTMPFILE
     trap 0
@@ -247,41 +247,41 @@ fi
 RET=0
 for ARG; do
     case "$ARG" in
-	http://*);;
-	*://*)
+        http://*);;
+        *://*)
             # destination is not http, invoke wget directly
-	    wget $WGETARGS "$ARG"
-	    RET=$?
-	    if [ $RET = 0 ]; then
-		continue
-	    fi
-	    break
-	    ;;
-	*)
-	    WGETARGS="$WGETARGS $ARG"
-	    continue
-	    ;;
+            wget $WGETARGS "$ARG"
+            RET=$?
+            if [ $RET = 0 ]; then
+                continue
+            fi
+            break
+            ;;
+        *)
+            WGETARGS="$WGETARGS $ARG"
+            continue
+            ;;
     esac
 
     # http:// -- try wget until one of the proxies suceeds
     for PROXY in $PROXIES; do
-	if [ "$PROXY" = DIRECT ]; then
-	    unset http_proxy
-	else
-	    export http_proxy="$PROXY"
-	fi
+        if [ "$PROXY" = DIRECT ]; then
+            unset http_proxy
+        else
+            export http_proxy="$PROXY"
+        fi
         if $VERBOSE; then
             echo "Trying to wget $ARG with proxy $PROXY" >&2
         fi
-	wget $WGETARGS "$ARG"
-	RET=$?
-	if [ $RET = 0 ]; then
-	    break
-	fi
-	if [ "$PROXY" != DIRECT ]; then
-	    # If using a proxy, and the host has more than one address,
-	    #  try individual addresses too if can find them, to make
-	    #  sure all have been tried.  Note that it might not work
+        wget $WGETARGS "$ARG"
+        RET=$?
+        if [ $RET = 0 ]; then
+            break
+        fi
+        if [ "$PROXY" != DIRECT ]; then
+            # If using a proxy, and the host has more than one address,
+            #  try individual addresses too if can find them, to make
+            #  sure all have been tried.  Note that it might not work
             #  if the client machine is on a private network and
             #  only the proxy machine has access to the internet DNS.
             EXPURLS="`expandurl $AHTTPURL`"
@@ -291,28 +291,28 @@ for ARG; do
                     continue;;
             esac
             for URL in $EXPURLS; do
-		RET=0
+                RET=0
                 if $VERBOSE; then
                     echo "Trying to wget $URL with proxy $PROXY" >&2
                 fi
-		wget $WGETARGS $URL
-		RET=$?
-		if [ $RET = 0 ]; then
-		    break
-		fi
-	    done
-	    if [ $RET = 0 ]; then
-		break
-	    fi
-	fi
-	if [ $RET = 0 ]; then
-	    break
-	fi
+                wget $WGETARGS $URL
+                RET=$?
+                if [ $RET = 0 ]; then
+                    break
+                fi
+            done
+            if [ $RET = 0 ]; then
+                break
+            fi
+        fi
+        if [ $RET = 0 ]; then
+            break
+        fi
     done
     if [ $RET != 0 ]; then
-	echo "$ME: error getting $ARG" >&2
-	echo "  with HTTP_PROXIES=${PROXIES// /;}" >&2
-	break
+        echo "$ME: error getting $ARG" >&2
+        echo "  with HTTP_PROXIES=${PROXIES// /;}" >&2
+        break
     fi
 done
 
