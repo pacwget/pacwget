@@ -50,6 +50,29 @@ if [ $# = 0 ]; then
     usage
 fi
 
+expandurl()
+{
+    if [ "$1" = DIRECT ]; then
+        echo DIRECT
+        return
+    fi
+
+    typeset HOST IPS IP URLS
+    HOST="${1#http://}"
+    HOST="${HOST%%/*}"
+    HOST="${HOST%:*}"
+    IPS="`host $HOST 2>/dev/null|sed -n "s/.* has address //p"`"
+    if [ -z "$IPS" ]; then
+        echo $1
+    else
+        URLS=""
+        for IP in $IPS; do
+            URLS="$URLS ${1/$HOST/$IP}"
+        done
+        echo $URLS
+    fi
+}
+
 CONNECTTIMEOUT=""
 READTIMEOUT=""
 PREV_ARG=""
@@ -59,6 +82,7 @@ IPVERSION=""
 ONLYPROXIES=false
 PACPARSEDEBUG=""
 PACWGETQUIET="-q"
+VERBOSE=false
 for ARG; do
     case "$PREVARG" in
 	-*T*)
@@ -89,6 +113,7 @@ for ARG; do
 	    ;;
 	--verbose|-v)
 	    PACWGETQUIET=""
+            VERBOSE=true
 	    ;;
 	http://*)
 	    if [ -z "$AHTTPURL" ]; then
@@ -153,16 +178,24 @@ else
 	    PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACFILE -u "$AHTTPURL"`"
 	    PACPARSERET=$?
 	elif [ "$PACURL" != "${PACURL#http://}" ]; then
-	    if [ -n "$PACPARSEDEBUG" ]; then
-		echo "DEBUG: wgetting $PACURL"
-	    fi
-	    if wget $PACWGETARGS -O$PACTMPFILE $PACURL; then
-		PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACTMPFILE -u "$AHTTPURL" -U "$PACURL"`"
-		PACPARSERET=$?
-	    else
-		# wget of a PAC file failed, silently continue to next one
-		continue
-	    fi
+            PACPARSERET=0
+            WGETRET=0
+            for URL in `expandurl $PACURL`; do
+                if [ -n "$PACPARSEDEBUG" ] || $VERBOSE; then
+                    echo "Trying to read PAC from $URL" >&2
+                fi
+                wget $PACWGETARGS -O$PACTMPFILE $PACURL
+                WGETRET=$?
+                if [ $WGETRET = 0 ]; then
+                    PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACTMPFILE -u "$AHTTPURL" -U "$PACURL"`"
+                    PACPARSERET=$?
+                    break
+                fi
+            done
+            if [ $WGETRET != 0 ]; then
+                # wget of a PAC file failed, silently continue to next one
+                continue
+            fi
 	else
 	    echo "$ME: $PACURL isn't auto or DIRECT" >&2
 	    echo "    and doesn't begin with http:// or file://" >&2
@@ -194,8 +227,14 @@ else
     trap 0
 fi
 
+# expand each proxy to addresses in case they're round-robins
+EXPPROXIES=""
+for PROXY in $PROXIES; do
+    EXPPROXIES="$EXPPROXIES `expandurl $PROXY`"
+done
+PROXIES="`echo $EXPPROXIES`" # eliminate extra blanks
+
 if $ONLYPROXIES; then
-    PROXIES="`echo $PROXIES`" # consolidate multiple blanks to 1
     echo ${PROXIES// /;}
     exit
 fi
@@ -210,6 +249,7 @@ for ARG; do
     case "$ARG" in
 	http://*);;
 	*://*)
+            # destination is not http, invoke wget directly
 	    wget $WGETARGS "$ARG"
 	    RET=$?
 	    if [ $RET = 0 ]; then
@@ -230,25 +270,32 @@ for ARG; do
 	else
 	    export http_proxy="$PROXY"
 	fi
+        if $VERBOSE; then
+            echo "Trying to wget $ARG with proxy $PROXY" >&2
+        fi
 	wget $WGETARGS "$ARG"
 	RET=$?
 	if [ $RET = 0 ]; then
 	    break
 	fi
 	if [ "$PROXY" != DIRECT ]; then
-	    # if using a proxy, and server has more than one address,
+	    # If using a proxy, and the host has more than one address,
 	    #  try individual addresses too if can find them, to make
-	    #  sure all have been tried
-	    AHOST="${AHTTPURL#http://}"
-	    AHOST="${AHOST%%/*}"
-	    AHOST="${AHOST%:*}"
-	    IPS="`host $AHOST 2>/dev/null|sed -n "s/.* has address //p"`"
-	    if [ `echo "$IPS"|wc -l` -lt 2 ]; then
-		continue
-	    fi
-	    for IP in $IPS; do
+	    #  sure all have been tried.  Note that it might not work
+            #  if the client machine is on a private network and
+            #  only the proxy machine has access to the internet DNS.
+            EXPURLS="`expandurl $AHTTPURL`"
+            case "$EXPURLS" in
+                *" "*) ;;
+                *)  # there was only one address
+                    continue;;
+            esac
+            for URL in $EXPURLS; do
 		RET=0
-		wget $WGETARGS "${ARG/$AHOST/$IP}"
+                if $VERBOSE; then
+                    echo "Trying to wget $URL with proxy $PROXY" >&2
+                fi
+		wget $WGETARGS $URL
 		RET=$?
 		if [ $RET = 0 ]; then
 		    break
@@ -264,7 +311,7 @@ for ARG; do
     done
     if [ $RET != 0 ]; then
 	echo "$ME: error getting $ARG" >&2
-	echo "  with HTTP_PROXIES=${PROXIES// /; }" >&2
+	echo "  with HTTP_PROXIES=${PROXIES// /;}" >&2
 	break
     fi
 done
