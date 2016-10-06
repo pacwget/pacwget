@@ -20,11 +20,12 @@
 
 
 ME=pacwget
+PACWGETVERSION=1.0
 
 usage()
 {
     (
-    echo "Usage: $ME [--only-proxies] [wget_options]" 
+    echo "Usage: $ME [--version] [--only-proxies] [wget_options]" 
     echo
     echo '$PAC_URLS is a semicolon-separated list of URLs to try to read'
     echo '  Proxy Auto Config files from if $HTTP_PROXIES and $http_proxy are'
@@ -40,6 +41,7 @@ usage()
     echo 'By default adds these wget options:'
     echo '  --tries=1 --connect-timeout=5 --read-timeout=10'
     echo 'Also adds wget -q when reading PAC URLs if -v or -d not given'
+    echo 'If --version is given, prints current version and exits'
     echo 'If --only-proxies is given, prints to stdout a $HTTP_PROXIES-like list of'
     echo '  proxies that would be used and does not load the given http URL with wget.'
     ) >&2
@@ -97,6 +99,10 @@ for ARG; do
             ;;
         --read-timeout=*)
             READTIMEOUT=${ARG#*=}
+            ;;
+        --version)
+            echo "$ME: version $PACWGETVERSION" >&2
+            exit
             ;;
         --only-proxies)
             ONLYPROXIES=true;
