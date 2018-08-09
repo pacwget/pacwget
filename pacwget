@@ -20,7 +20,7 @@
 
 
 ME=pacwget
-PACWGETVERSION=1.0
+PACWGETVERSION=1.1
 
 usage()
 {
@@ -52,6 +52,16 @@ if [ $# = 0 ]; then
     usage
 fi
 
+urlhost()
+{
+    typeset HOST
+    HOST="${1#http://}"
+    HOST="${HOST%%/*}"
+    HOST="${HOST%:*}"
+    echo "$HOST"
+    return
+}
+
 expandurl()
 {
     if [ "$1" = DIRECT ]; then
@@ -60,9 +70,7 @@ expandurl()
     fi
 
     typeset HOST IPS IP URLS
-    HOST="${1#http://}"
-    HOST="${HOST%%/*}"
-    HOST="${HOST%:*}"
+    HOST="`urlhost "$1"`"
     IPS="`host $HOST 2>/dev/null|sed -n "s/.* has address //p"`"
     if [ -z "$IPS" ]; then
         echo $1
@@ -186,11 +194,12 @@ else
         elif [ "$PACURL" != "${PACURL#http://}" ]; then
             PACPARSERET=0
             WGETRET=0
+            HOSTOPT="--header=Host: `urlhost $PACURL`"
             for URL in `expandurl $PACURL`; do
                 if [ -n "$PACPARSEDEBUG" ] || $VERBOSE; then
                     echo "Trying to read PAC from $URL" >&2
                 fi
-                wget $PACWGETARGS -O$PACTMPFILE $PACURL
+                wget $PACWGETARGS -O$PACTMPFILE "$HOSTOPT" $URL
                 WGETRET=$?
                 if [ $WGETRET = 0 ]; then
                     PROXYLIST="`pacparse $IPVERSION $PACPARSEDEBUG -p $PACTMPFILE -u "$AHTTPURL" -U "$PACURL"`"
@@ -296,12 +305,13 @@ for ARG; do
                 *)  # there was only one address
                     continue;;
             esac
+            HOSTOPT="--header=Host: `urlhost $AHTTPURL`"
             for URL in $EXPURLS; do
                 RET=0
                 if $VERBOSE; then
-                    echo "Trying to wget $URL with proxy $PROXY" >&2
+                    echo "Trying to wget $HOSTOPT $URL with proxy $PROXY" >&2
                 fi
-                wget $WGETARGS $URL
+                wget $WGETARGS "$HOSTOPT" $URL
                 RET=$?
                 if [ $RET = 0 ]; then
                     break
